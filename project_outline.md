@@ -19,14 +19,19 @@
 
 #### Transmission Scheduling
 
-1. Send position every minute
-2. Device ID = 6
-3. Mirror to serial port for debugging.
+1. Between UTC 2200 and 0400 send position every 30 seconds
+2. Between UTC 0401 and 2159 send position every 5 minutes
+3. Device ID = 6
+4. Mirror to serial port for debugging.
+5. During transmission, turn on RGB LED so it is Blue. 
 
 #### Navigation Light
 
-1. Turn on nav light on GPIO6 during LoRa transmission
-2. Turn off nav light when transmission completes
+1. Navigation light on GPIO6
+2. Navigation light is operational from UTC 0100 to 1300.
+   1. Use GPS time
+
+3. Navigation light turns on every 20 seconds, and stays on for 0.5 seconds.
 
 #### Display
 
@@ -147,9 +152,6 @@ GitHub site: https://github.com/SailorScott/LoRaBuoySend.git
 * [ ] Thursday night race schedule detection (day-of-week check exists but not wired in)
 * [ ] Variable transmission intervals (race vs non-race)
 * [ ] Base station race time check on 10-minute intervals
-* [ ] Nav light timer-based flashing (0.5s on / 5s cycle)
-* [ ] Nav light low-light activation via solar panel ADC
-* [ ] Nav light time-based activation (9PM - 7AM)
 * [ ] Display auto-off after 5 minutes
 * [ ] Sleep mode with GPS power-down
 * [ ] Auto-sleep after 5 hours (BOATAUTOSLEETIME defined but unused)

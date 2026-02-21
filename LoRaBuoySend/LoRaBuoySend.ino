@@ -50,7 +50,9 @@ Air530ZClass GPS;
 
 #define BOATAUTOSLEETIME 18000000 // 5 hours then go to sleep. Reset occurs to wake up.
 
-#define DISPLAY_OFF_TIME 300000   // 5 minutes in ms - turn off display after this
+#define DISPLAY_OFF_TIME 300000    // 5 minutes in ms - turn off display after this
+#define NAV_FLASH_ON_TIME 500      // Nav light on duration (0.5 seconds)
+#define NAV_FLASH_CYCLE_TIME 20000 // Nav light cycle (20 seconds)
 
 const int MessageType = 2;     // Buoy Message
 int TxCounter = 0;             // Incrument with each send, used for checking for dropped messages.
@@ -69,7 +71,9 @@ void OnTxTimeout(void);
 
 void OnNavLightOn(void);
 void OnNavLightOff(void);
+void updateNavLightFlash(void);
 void updateDisplayAutoOff(void);
+bool isNightMode(void);
 bool buildGPSTXMessage(void);
 
 uint16_t voltage = 0;          // Reading battery voltage level
@@ -162,6 +166,7 @@ void loop()
 {
 
   updateDisplayAutoOff();
+  updateNavLightFlash();
 
   switch (StateMachine)
   {
@@ -191,22 +196,41 @@ void loop()
       secondsCounter = GPS.time.second();
     }
 
-    if (secondsCounter % TXSECTIMETRIG == 0)
     {
-      StateMachine = stReadGPSSave2BufferAndTransmit;
-    }
-    else if (secondsCounter % GPSREADSECTIMETRIG == 0)
-    {
-      // Log GPS position on 15-second reads
-      Serial.print(String(GPS.time.hour()) + ":" + String(GPS.time.minute()) + ":" + String(secondsCounter));
-      Serial.print(" Sat=" + String(GPS.satellites.value()));
-      Serial.print(" Lat=" + String(GPS.location.lat(), 6));
-      Serial.println(" Lng=" + String(GPS.location.lng(), 6));
-      StateMachine = stReadGPSSave2Buffer;
-    }
-    else
-    {
-      StateMachine = stWaitGPS1PPS;
+      bool txNow = false;
+      if (isNightMode())
+      {
+        // Night mode (22:00-04:00): transmit every minute (at 0 and 30 seconds)
+        txNow = (secondsCounter % TXSECTIMETRIG == 0);
+      }
+      else
+      {
+        // Day mode (04:01-21:59): transmit every 5 minutes (at second 0)
+        txNow = (secondsCounter == 0 && GPS.time.minute() % 5 == 0);
+      }
+
+      if (txNow)
+      {
+        if (!isNightMode())
+        {
+          // Day mode: clear buffer, send single reading only
+          transmitStr[0] = 0;
+        }
+        StateMachine = stReadGPSSave2BufferAndTransmit;
+      }
+      else if (isNightMode() && secondsCounter % GPSREADSECTIMETRIG == 0)
+      {
+        // Night mode only: buffer GPS readings between transmits
+        Serial.print(String(GPS.time.hour()) + ":" + String(GPS.time.minute()) + ":" + String(secondsCounter));
+        Serial.print(" Sat=" + String(GPS.satellites.value()));
+        Serial.print(" Lat=" + String(GPS.location.lat(), 6));
+        Serial.println(" Lng=" + String(GPS.location.lng(), 6));
+        StateMachine = stReadGPSSave2Buffer;
+      }
+      else
+      {
+        StateMachine = stWaitGPS1PPS;
+      }
     }
 
     break;
@@ -215,8 +239,7 @@ void loop()
     while ((millis() - starttime) < 100 * TXTENTHSSLOT)
     { // wait till time send.
     }
-    turnOnRGB(COLOR_SEND, 0);
-    OnNavLightOn();
+    turnOnRGB(0x0000FF, 0); // Blue during TX
     if (displayActive)
     {
       displayBd.clear();
@@ -302,7 +325,6 @@ void OnTxDone(void)
   // Serial.println("TX done!");
   int endTran = millis();
   turnOffRGB();
-  OnNavLightOff();
   Serial.println("Tx time=" + String(endTran - startTran) );
   // Serial.println(transmitStr);
   transmitStr[0] = 0; // clear transmitStr
@@ -322,6 +344,37 @@ void OnNavLightOn(void)
 void OnNavLightOff(void)
 {
   digitalWrite(GPIO6, LOW);
+}
+
+// Check if in night mode: UTC 22:00 to 04:00
+bool isNightMode(void)
+{
+  int hour = GPS.time.hour();
+  return (hour >= 22 || hour < 4);
+}
+
+// Nav light flash: 0.5s on every 20s, active UTC 01:00 to 13:00
+void updateNavLightFlash(void)
+{
+  int hour = GPS.time.hour();
+  bool navLightActive = (hour >= 1 && hour < 13);
+
+  if (navLightActive)
+  {
+    uint32_t cyclePos = millis() % NAV_FLASH_CYCLE_TIME;
+    if (cyclePos < NAV_FLASH_ON_TIME)
+    {
+      OnNavLightOn();
+    }
+    else
+    {
+      OnNavLightOff();
+    }
+  }
+  else
+  {
+    OnNavLightOff();
+  }
 }
 
 // Turn off display after 5 minutes from boot
