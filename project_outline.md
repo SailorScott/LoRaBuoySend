@@ -31,7 +31,7 @@
 2. Navigation light is operational from UTC 0100 to 1300.
    1. Use GPS time
 
-3. Navigation light turns on every 20 seconds, and stays on for 0.5 seconds.
+3. Navigation light turns on every 10 seconds, and stays on for 1 second.
 
 #### Display
 

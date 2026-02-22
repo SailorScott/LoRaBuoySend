@@ -51,8 +51,8 @@ Air530ZClass GPS;
 #define BOATAUTOSLEETIME 18000000 // 5 hours then go to sleep. Reset occurs to wake up.
 
 #define DISPLAY_OFF_TIME 300000    // 5 minutes in ms - turn off display after this
-#define NAV_FLASH_ON_TIME 500      // Nav light on duration (0.5 seconds)
-#define NAV_FLASH_CYCLE_TIME 20000 // Nav light cycle (20 seconds)
+#define NAV_FLASH_ON_TIME 1000     // Nav light on duration (1 second)
+#define NAV_FLASH_CYCLE_TIME 10000 // Nav light cycle (10 seconds)
 
 const int MessageType = 2;     // Buoy Message
 int TxCounter = 0;             // Incrument with each send, used for checking for dropped messages.
