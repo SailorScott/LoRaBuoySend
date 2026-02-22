@@ -17,21 +17,19 @@
 3. Day mode: Transmit via LoRa every 5 minutes, single GPS reading (no accumulation)
 4. Only transmit when GPS has a valid fix (non-zero lat/long)
 
-#### Transmission Scheduling
+#### Scheduling Summary
 
-1. Between UTC 2200 and 0400 send position every 30 seconds
-2. Between UTC 0401 and 2159 send position every 5 minutes
-3. Device ID = 6
-4. Mirror to serial port for debugging.
-5. During transmission, turn on RGB LED so it is Blue. 
+| Function | UTC On | UTC Off | Interval | Duration |
+|-|-|-|-|-|
+| LoRa TX (night) | 22:00 | 04:00 | 30 seconds | — |
+| LoRa TX (day) | 04:01 | 21:59 | 5 minutes | — |
+| Nav Light | 01:00 | 13:00 | 10 seconds | 1 second on |
+| Display | boot | boot + 5 min | — | auto-off |
 
-#### Navigation Light
-
-1. Navigation light on GPIO6
-2. Navigation light is operational from UTC 0100 to 1300.
-   1. Use GPS time
-
-3. Navigation light turns on every 10 seconds, and stays on for 1 second.
+* Device ID = 6
+* Mirror transmissions to serial port for debugging
+* During transmission, turn on RGB LED blue
+* Nav light on GPIO6, uses GPS time
 
 #### Display
 
