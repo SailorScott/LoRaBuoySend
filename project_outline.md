@@ -13,8 +13,8 @@
 1. Read GPS position at 15-second intervals (0, 15, 30, 45 seconds)
    1. Write to serial port
 
-2. Transmit position via LoRa at 30-second intervals (0 and 30 seconds)
-3. Buffer up to 2 GPS positions per transmission cycle
+2. Night mode: Transmit via LoRa at 30-second intervals (0 and 30 seconds), buffer up to 2 GPS positions
+3. Day mode: Transmit via LoRa every 5 minutes, single GPS reading (no accumulation)
 4. Only transmit when GPS has a valid fix (non-zero lat/long)
 
 #### Transmission Scheduling
