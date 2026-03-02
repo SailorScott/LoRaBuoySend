@@ -34,7 +34,7 @@ usbipd attach --wsl --busid <BUSID>
 
 ## Transmit Schedule
 - **Night mode** (UTC 22:00-04:00): every 30 seconds
-- **Day mode** (UTC 04:01-21:59): every 5 minutes
+- **Day mode** (UTC 04:01-21:59): every 30 minutes
 - Timeslot offset: 600ms (TXTENTHSSLOT=6)
 
 ## LoRa Message Format

@@ -49,6 +49,7 @@ Air530ZClass GPS;
 #define BUFFER_SIZE 200 // room for 4 messages
 
 #define BOATAUTOSLEETIME 18000000 // 5 hours then go to sleep. Reset occurs to wake up.
+#define DAY_SLEEP_MS 1680000UL // 28 minutes: wake 2 min early for GPS re-acquire
 
 #define DISPLAY_OFF_TIME 300000    // 5 minutes in ms - turn off display after this
 #define NAV_FLASH_ON_TIME 1000     // Nav light on duration (1 second)
@@ -66,8 +67,10 @@ int gpsLong = 0;
 bool successfulGPSMessage = false;
 
 static RadioEvents_t RadioEvents;
+static TimerEvent_t sleepTimer;
 void OnTxDone(void);
 void OnTxTimeout(void);
+void onSleepTimerDone(void);
 
 void OnNavLightOn(void);
 void OnNavLightOff(void);
@@ -86,7 +89,8 @@ typedef enum
   st1SecPulseGrapGPSData,
   stTxString,
   stReadGPSSave2BufferAndTransmit,
-  stReadGPSSave2Buffer
+  stReadGPSSave2Buffer,
+  stSleeping
 } States_t;
 
 // intial state machine
@@ -158,6 +162,8 @@ void setup()
                     LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
                     true, 0, 0, LORA_IQ_INVERSION_ON, 3000);
 
+  TimerInit(&sleepTimer, onSleepTimerDone);
+
   bootTime = millis();
   StateMachine = stWaitGPSBoot; // intial state
 }
@@ -205,8 +211,8 @@ void loop()
       }
       else
       {
-        // Day mode (04:01-21:59): transmit every 5 minutes (at second 0)
-        txNow = (secondsCounter == 0 && GPS.time.minute() % 5 == 0);
+        // Day mode (04:01-21:59): transmit every 30 minutes (at second 0)
+        txNow = (secondsCounter == 0 && GPS.time.minute() % 30 == 0);
       }
 
       if (txNow)
@@ -276,6 +282,25 @@ void loop()
     StateMachine = stWaitGPS1PPS;
     break;
 
+  case stSleeping:
+    // Day mode only: power down GPS and radio, sleep CPU for 28 min, then re-acquire GPS
+    Serial.println("Day sleep: 28min");
+    Serial.flush();
+    detachInterrupt(digitalPinToInterrupt(GPIO12));
+    Radio.Sleep();
+    VextPowOFF();
+    TimerSetValue(&sleepTimer, DAY_SLEEP_MS);
+    TimerStart(&sleepTimer);
+    lowPowerHandler(); // blocks until timer fires
+    // Woke up - restart GPS
+    VextPowON();
+    delay(100);
+    GPS.setmode(MODE_GPS_GLONASS);
+    GPS.setNMEA(0);
+    GPS.begin(57600);
+    StateMachine = stWaitGPSBoot; // interrupt re-attached there when GPS data arrives
+    break;
+
   } // end of switch
 } // end of loop
 
@@ -322,12 +347,19 @@ bool buildGPSTXMessage(void)
 }
 void OnTxDone(void)
 {
-  // Serial.println("TX done!");
   int endTran = millis();
   turnOffRGB();
-  Serial.println("Tx time=" + String(endTran - startTran) );
-  // Serial.println(transmitStr);
+  Serial.println("Tx time=" + String(endTran - startTran));
   transmitStr[0] = 0; // clear transmitStr
+  if (!isNightMode())
+  {
+    StateMachine = stSleeping; // day mode: sleep until next 30-min slot
+  }
+}
+
+void onSleepTimerDone(void)
+{
+  // Timer callback fires to wake CPU from lowPowerHandler()
 }
 
 void OnTxTimeout(void)
