@@ -1,3 +1,5 @@
+
+
 # PYC Race Mark - LoRa Buoy Position Sender
 
 ## Project Info
@@ -8,24 +10,27 @@
 
 ## Requirements
 
-#### GPS Position Transmission
+#### GPS Rules
 
-1. Read GPS position at 15-second intervals (0, 15, 30, 45 seconds)
-   1. Write to serial port
+1. Only transmit when GPS has a valid fix (non-zero lat/long)
 
-2. Night mode: Transmit via LoRa at 30-second intervals (0 and 30 seconds), buffer up to 2 GPS positions
-3. Day mode: Transmit via LoRa every 5 minutes, single GPS reading (no accumulation)
-4. Only transmit when GPS has a valid fix (non-zero lat/long)
+#### LORA Transmitting Scheduling Summary
 
-#### Scheduling Summary
-
-| Function | UTC On | UTC Off | Interval | Duration |
+| Function | UTC On | UTC Off | Transmit Interval | GPS Sampling |
 |-|-|-|-|-|
-| LoRa TX (night) | 22:00 | 04:00 | 30 seconds | — |
-| LoRa TX (day) | 04:01 | 21:59 | 5 minutes | — |
-| Nav Light | 01:00 | 13:00 | 10 seconds | 1 second on |
-| Display | boot | boot + 5 min | — | auto-off |
+| MidNightMode | 0:00 | 04:00 | 30 seconds | 15-second intervals (0, 15, 30, 45 seconds) |
+| DayMode | 04:01 | 21:59 | 30 minutes | Single GPS reading (no accumulation) |
+| NightMode    | 22:00  | 23:59   | 30 seconds        | 15-second intervals (0, 15, 30, 45 seconds) |
+|              |        |         |                   |                                             |
 
+#### Lights and Display Schedule
+
+| Function  | UTC On | UTC Off      | Interval   | Duration    |
+| --------- | ------ | ------------ | ---------- | ----------- |
+| Nav Light | 01:00  | 13:00        | 10 seconds | 1 second on |
+| Display   | boot   | boot + 5 min | —          | auto-off    |
+
+* 
 * Device ID = 6
 * Mirror transmissions to serial port for debugging
 * During transmission, turn on RGB LED blue
@@ -44,7 +49,7 @@
 * Vext controls external power to GPS and display (LOW = ON, HIGH = OFF)
 * Battery voltage read via ADC with VBAT\_ADC\_CTL gate
 * Formula: VBAT = 2 * V(ADC1)
-* Future: Normal sleep mode with GPS off when idle
+* Day mode: CPU and radio sleep for 28 min between transmits; GPS stays powered to avoid restart issues
 
 ## State Machine
 
@@ -56,6 +61,7 @@
 | stReadGPSSave2Buffer | Read GPS and save to buffer (at 15/45 second marks) |
 | stReadGPSSave2BufferAndTransmit | Read GPS, save to buffer, transition to transmit (at 0/30 second marks) |
 | stTxString | Wait for assigned time slot, send LoRa packet, flash nav light |
+| stSleeping | Day mode only: sleep CPU and radio for 28 min, GPS stays powered and locked |
 
 ## LoRa Message Format
 
@@ -80,8 +86,6 @@ Messages are concatenated in the buffer - up to 2 position readings per transmit
 
 | Parameter | Value | Description |
 |-|-|-|
-| TXSECTIMETRIG | 30 | Transmit at 0 and 30 seconds |
-| GPSREADSECTIMETRIG | 15 | Read GPS at 0, 15, 30, 45 seconds |
 | TXTENTHSSLOT | 6 | Transmit delay = 600ms after second mark (collision avoidance) |
 
 ## LoRa Radio Configuration
@@ -150,8 +154,8 @@ GitHub site: https://github.com/SailorScott/LoRaBuoySend.git
 * [ ] Thursday night race schedule detection (day-of-week check exists but not wired in)
 * [ ] Variable transmission intervals (race vs non-race)
 * [ ] Base station race time check on 10-minute intervals
-* [ ] Display auto-off after 5 minutes
-* [ ] Sleep mode with GPS power-down
+* [x] Display auto-off after 5 minutes
+* [x] Day mode sleep (CPU + radio only; GPS stays on)
 * [ ] Auto-sleep after 5 hours (BOATAUTOSLEETIME defined but unused)
 
 ## Notes

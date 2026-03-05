@@ -283,22 +283,18 @@ void loop()
     break;
 
   case stSleeping:
-    // Day mode only: power down GPS and radio, sleep CPU for 28 min, then re-acquire GPS
+    // Day mode only: sleep CPU and radio, keep GPS powered to avoid restart issues
     Serial.println("Day sleep: 28min");
     Serial.flush();
-    detachInterrupt(digitalPinToInterrupt(GPIO12));
+    detachInterrupt(digitalPinToInterrupt(GPIO12)); // prevent 1PPS from waking CPU
     Radio.Sleep();
-    VextPowOFF();
     TimerSetValue(&sleepTimer, DAY_SLEEP_MS);
     TimerStart(&sleepTimer);
     lowPowerHandler(); // blocks until timer fires
-    // Woke up - restart GPS
-    VextPowON();
-    delay(100);
-    GPS.setmode(MODE_GPS_GLONASS);
-    GPS.setNMEA(0);
-    GPS.begin(57600);
-    StateMachine = stWaitGPSBoot; // interrupt re-attached there when GPS data arrives
+    // Woke up - GPS still locked, flush stale UART buffer then wait for next 1PPS
+    while (GPS.available() > 0) GPS.read();
+    attachInterrupt(digitalPinToInterrupt(GPIO12), GPS1SecPulse, RISING);
+    StateMachine = stWaitGPS1PPS;
     break;
 
   } // end of switch
