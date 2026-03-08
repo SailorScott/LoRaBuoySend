@@ -77,6 +77,7 @@ void OnNavLightOff(void);
 void updateNavLightFlash(void);
 void updateDisplayAutoOff(void);
 bool isNightMode(void);
+bool isLowPowerMode(void);
 bool buildGPSTXMessage(void);
 
 uint16_t voltage = 0;          // Reading battery voltage level
@@ -283,18 +284,21 @@ void loop()
     break;
 
   case stSleeping:
-    // Day mode only: sleep CPU and radio, keep GPS powered to avoid restart issues
-    Serial.println("Day sleep: 28min");
+    // Low power mode (13:00-22:00): power off GPS and radio, sleep CPU for 28 min
+    Serial.println("Low power sleep: 28min");
     Serial.flush();
-    detachInterrupt(digitalPinToInterrupt(GPIO12)); // prevent 1PPS from waking CPU
+    detachInterrupt(digitalPinToInterrupt(GPIO12));
     Radio.Sleep();
+    VextPowOFF(); // power off GPS and display
     TimerSetValue(&sleepTimer, DAY_SLEEP_MS);
     TimerStart(&sleepTimer);
     lowPowerHandler(); // blocks until timer fires
-    // Woke up - GPS still locked, flush stale UART buffer then wait for next 1PPS
-    while (GPS.available() > 0) GPS.read();
-    attachInterrupt(digitalPinToInterrupt(GPIO12), GPS1SecPulse, RISING);
-    StateMachine = stWaitGPS1PPS;
+    // Woke up - restart GPS, wait for fix in stWaitGPSBoot
+    VextPowON();
+    delay(100);
+    GPS.begin(57600); // reinit UART
+    secondsCounter = -99; // prevent stale frozen value from triggering false TX
+    StateMachine = stWaitGPSBoot;
     break;
 
   } // end of switch
@@ -347,9 +351,9 @@ void OnTxDone(void)
   turnOffRGB();
   Serial.println("Tx time=" + String(endTran - startTran));
   transmitStr[0] = 0; // clear transmitStr
-  if (!isNightMode())
+  if (isLowPowerMode())
   {
-    StateMachine = stSleeping; // day mode: sleep until next 30-min slot
+    StateMachine = stSleeping; // 13:00-22:00: sleep GPS and radio until next 30-min slot
   }
 }
 
@@ -374,11 +378,18 @@ void OnNavLightOff(void)
   digitalWrite(GPIO6, LOW);
 }
 
-// Check if in night mode: UTC 22:00 to 04:00
+// Check if in night mode: UTC 22:00 to 04:00 (30-second TX, 15-second GPS sampling)
 bool isNightMode(void)
 {
   int hour = GPS.time.hour();
   return (hour >= 22 || hour < 4);
+}
+
+// Low power mode: UTC 13:00 to 22:00 (sleep GPS and radio between 30-min TX)
+bool isLowPowerMode(void)
+{
+  int hour = GPS.time.hour();
+  return (hour >= 13 && hour < 22);
 }
 
 // Nav light flash: 0.5s on every 20s, active UTC 01:00 to 13:00

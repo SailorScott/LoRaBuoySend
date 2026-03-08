@@ -10,31 +10,23 @@
 
 ## Requirements
 
-#### GPS Rules
+### Master State Timing Table
 
-1. Only transmit when GPS has a valid fix (non-zero lat/long)
+| UTC Start | UTC End | GPS Sampling                                | LORA Sending | Low Power | Nav Light                             |
+| --------- | ------- | ------------------------------------------- | ------------ | --------- | ------------------------------------- |
+| 0:00      | 1:00    | 15-second intervals (0, 15, 30, 45 seconds) | 30 seconds   | No        | Off                                   |
+| 1:00      | 4:00    | 15-second intervals (0, 15, 30, 45 seconds) | 30 seconds   | No        | Interval 10 second, duration 1 second |
+| 4:00      | 13:00   | Single GPS reading (no accumulation)        | 30 minutes   | No        | Interval 10 second, duration 1 second |
+| 13:00     | 22:00   | Single GPS reading (no accumulation)        | 30 minutes   | Yes       | Off                                   |
+| 22:00     | 23:59   | 15-second intervals (0, 15, 30, 45 seconds) | 30 Seconds   | No        | Off                                   |
 
-#### LORA Transmitting Scheduling Summary
+- Only transmit when GPS has a valid fix (non-zero lat/long)
+- Device ID = 6
 
-| Function | UTC On | UTC Off | Transmit Interval | GPS Sampling |
-|-|-|-|-|-|
-| MidNightMode | 0:00 | 04:00 | 30 seconds | 15-second intervals (0, 15, 30, 45 seconds) |
-| DayMode | 04:01 | 21:59 | 30 minutes | Single GPS reading (no accumulation) |
-| NightMode    | 22:00  | 23:59   | 30 seconds        | 15-second intervals (0, 15, 30, 45 seconds) |
-|              |        |         |                   |                                             |
-
-#### Lights and Display Schedule
-
-| Function  | UTC On | UTC Off      | Interval   | Duration    |
-| --------- | ------ | ------------ | ---------- | ----------- |
-| Nav Light | 01:00  | 13:00        | 10 seconds | 1 second on |
-| Display   | boot   | boot + 5 min | —          | auto-off    |
-
-* 
-* Device ID = 6
 * Mirror transmissions to serial port for debugging
 * During transmission, turn on RGB LED blue
-* Nav light on GPIO6, uses GPS time
+* Nav light on GPIO6
+* Lower Power Mode: shut down GPS and LoRa Radio
 
 #### Display
 
@@ -49,7 +41,7 @@
 * Vext controls external power to GPS and display (LOW = ON, HIGH = OFF)
 * Battery voltage read via ADC with VBAT\_ADC\_CTL gate
 * Formula: VBAT = 2 * V(ADC1)
-* Day mode: CPU and radio sleep for 28 min between transmits; GPS stays powered to avoid restart issues
+* Low power mode (13:00-22:00): GPS and radio powered off, CPU sleeps 28 min between transmits; GPS restarts on wake via stWaitGPSBoot
 
 ## State Machine
 
@@ -61,7 +53,7 @@
 | stReadGPSSave2Buffer | Read GPS and save to buffer (at 15/45 second marks) |
 | stReadGPSSave2BufferAndTransmit | Read GPS, save to buffer, transition to transmit (at 0/30 second marks) |
 | stTxString | Wait for assigned time slot, send LoRa packet, flash nav light |
-| stSleeping | Day mode only: sleep CPU and radio for 28 min, GPS stays powered and locked |
+| stSleeping | Low power mode (13:00-22:00): power off GPS and radio, sleep CPU for 28 min |
 
 ## LoRa Message Format
 
@@ -155,7 +147,7 @@ GitHub site: https://github.com/SailorScott/LoRaBuoySend.git
 * [ ] Variable transmission intervals (race vs non-race)
 * [ ] Base station race time check on 10-minute intervals
 * [x] Display auto-off after 5 minutes
-* [x] Day mode sleep (CPU + radio only; GPS stays on)
+* [x] Low power sleep 13:00-22:00 (GPS + radio off, CPU sleeps 28 min)
 * [ ] Auto-sleep after 5 hours (BOATAUTOSLEETIME defined but unused)
 
 ## Notes

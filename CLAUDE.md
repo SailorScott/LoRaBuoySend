@@ -33,8 +33,13 @@ usbipd attach --wsl --busid <BUSID>
 ```
 
 ## Transmit Schedule
-- **Night mode** (UTC 22:00-04:00): every 30 seconds
-- **Day mode** (UTC 04:01-21:59): every 30 minutes
+| UTC       | TX Interval | GPS Sampling  | Low Power        | Nav Light |
+|-----------|-------------|---------------|------------------|-----------|
+| 00:00-04:00 | 30 sec    | Every 15 sec  | No               | Off (01:00 on) |
+| 04:00-13:00 | 30 min    | Single read   | No               | On (off at 13:00) |
+| 13:00-22:00 | 30 min    | Single read   | Yes (GPS+radio off, CPU sleeps 28 min) | Off |
+| 22:00-24:00 | 30 sec    | Every 15 sec  | No               | Off |
+
 - Timeslot offset: 600ms (TXTENTHSSLOT=6)
 
 ## LoRa Message Format
